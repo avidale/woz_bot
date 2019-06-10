@@ -57,7 +57,9 @@ def process_message(msg):
             if original_message is None:
                 bot.reply_to(msg, 'Исходное сообщение не найдено!')
             else:
-                bot.send_message(original_message['original_uid'], text)
+                bot.send_message(
+                    original_message['original_uid'], text, reply_to_message_id=original_message['original_id']
+                )
                 report = 'Ваше сообщение было отправлено @{}'.format(original_message.get('original_username'))
                 bot.reply_to(msg, report)
         else:
