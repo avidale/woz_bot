@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 import argparse
 import os
-import sentry_sdk
 import telebot
 
 from pymongo import MongoClient
@@ -13,14 +12,14 @@ bot = telebot.TeleBot(TOKEN)
 
 server = Flask(__name__)
 TELEBOT_URL = 'telebot_webhook/'
-BASE_URL = 'https://woz-bot.herokuapp.com/'
+BASE_URL = 'https://wizard-of-oz-bot.herokuapp.com/'
 
 MONGO_URL = os.environ.get('MONGODB_URI')
 mongo_client = MongoClient(MONGO_URL)
 mongo_db = mongo_client.get_default_database()
 
-mongo_config = mongo_client.get_collection('config')
-mongo_messages = mongo_client.get_collection('messages')
+mongo_config = mongo_db.get_collection('config')
+mongo_messages = mongo_db.get_collection('messages')
 
 
 @server.route("/" + TELEBOT_URL)
@@ -39,8 +38,8 @@ def wake_up():
 @bot.message_handler(func=lambda message: True, content_types=['document', 'text', 'photo'])
 def process_message(msg):
     text = msg.text
-    woz = mongo_config.find_one({'key': 'wizard})
-    if woz is None:
+    woz = mongo_config.find_one({'key': 'wizard'})
+    if woz is not None:
         woz_uid = woz['uid']
     else:
         woz_uid = None
@@ -59,6 +58,8 @@ def process_message(msg):
                 bot.reply_to(msg, 'Исходное сообщение не найдено!')
             else:
                 bot.send_message(original_message['original_uid'], text)
+                report = 'Ваше сообщение было отправлено @{}'.format(original_message.get('original_username'))
+                bot.reply_to(msg, report)
         else:
             bot.reply_to(msg, 'Да, вы по-прежнему волшебник. Ждите сообщений от меня и отвечайте на них!')
     elif woz_uid is None:
@@ -67,7 +68,10 @@ def process_message(msg):
         new_text = 'Сообщение от @{}:\n_____\n{}'.format(msg.from_user.username, text)
         result = bot.send_message(woz_uid, new_text)
         mongo_messages.insert_one(
-            {'copy_id': result.message_id, 'original_id': msg.message_id, 'original_uid': msg.from_user.id}
+            {
+                'copy_id': result.message_id, 'original_id': msg.message_id,
+                'original_uid': msg.from_user.id, 'original_username': msg.from_user.username
+            }
         )
 
 
